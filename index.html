@@ -259,32 +259,41 @@ function addComment() {
   document.getElementById("commentInput").value = "";
 }
 
-db.collection("comments")
-  .orderBy("date", "desc")
-  .onSnapshot((snapshot) => {
-    const list = document.getElementById("commentList");
-    list.innerHTML = "";
 
-    snapshot.forEach((doc) => {
-      const c = doc.data();
-      const li = document.createElement("li");
+firebase.auth().onAuthStateChanged((user) => {
+  loginUser = user;
 
-      let deleteButton = "";
+  if (!user) return;
 
-      // 自分のコメントだけ削除ボタンを表示
-     if ((loginUser && loginUser.uid === c.uid) || isAdmin) {
-  deleteButton = `<button onclick="deleteComment('${doc.id}')">削除</button>`;
-}
-      li.innerHTML = `
-        <strong>${c.name}</strong><br>
-        ${c.text}
-        <div class="meta">${c.date}</div>
-        ${deleteButton}
-      `;
+  db.collection("comments")
+    .orderBy("date", "desc")
+    .onSnapshot((snapshot) => {
+      const list = document.getElementById("commentList");
+      list.innerHTML = "";
 
-      list.appendChild(li);
+      snapshot.forEach((doc) => {
+        const c = doc.data();
+        const li = document.createElement("li");
+
+        let deleteButton = "";
+
+        if ((loginUser && loginUser.uid === c.uid) || isAdmin) {
+          deleteButton = `<button onclick="deleteComment('${doc.id}')">削除</button>`;
+        }
+
+        li.innerHTML = `
+          <strong>${c.name}</strong><br>
+          ${c.text}
+          <div class="meta">${c.date}</div>
+          ${deleteButton}
+        `;
+
+        list.appendChild(li);
+      });
     });
-  });
+}); 
+
+
 
 function deleteUser() {
   const user = firebase.auth().currentUser;
@@ -388,4 +397,5 @@ function deleteAllComments() {
 }
 </script>
 </body>
+
 </html>
