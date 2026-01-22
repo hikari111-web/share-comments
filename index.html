@@ -406,9 +406,6 @@ function adminLogin() {
 
 
 
-firebase.auth().onAuthStateChanged((user) => {
-  loginUser = user;
-});
 
 
 
@@ -417,17 +414,11 @@ firebase.auth().onAuthStateChanged((user) => {
 
 
 
-function deleteAllComments() {
-  if (!isAdmin) return;
 
-  db.collection("comments").get().then((snapshot) => {
-    snapshot.forEach((doc) => {
-      doc.ref.delete();
-    });
-  });
-}
+
 </script>
 </body>
 
 </html>
+
 
