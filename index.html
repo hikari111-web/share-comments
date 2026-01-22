@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>コメント付きカウンター</title>
+
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: #f5f7fa;
+    padding: 30px;
+    color: #333;
+  }
+
+  .container {
+    max-width: 600px;
+    margin: auto;
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  h2 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .counter-box {
+    background: #e8f0fe;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    font-size: 18px;
+    text-align: center;
+  }
+
+  .input-area {
+    margin-bottom: 20px;
+  }
+
+  input, button {
+    padding: 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+
+  input {
+    width: calc(100% - 22px);
+    margin-bottom: 10px;
+  }
+
+  button {
+    width: 100%;
+    background: #4a90e2;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #357abd;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  li {
+    background: #fafafa;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border-left: 4px solid #4a90e2;
+  }
+
+  .meta {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+  }
+</style>
+
+</head>
+<body>
+
+
+<div id="loginArea">
+
+<h3>ログイン / 新規登録</h3>
+<input type="text" id="email" placeholder="メールアドレス">
+<input type="password" id="password" placeholder="パスワード">
+<input type="text" id="displayName" placeholder="ユーザー名（新規登録時）">
+
+<button onclick="signup()">新規登録</button>
+<button onclick="login()">ログイン</button>
+
+<p id="loginStatus"></p>
+</div>
+<div id="adminLogin">
+  <input type="password" id="adminPass" placeholder="管理者パスワード">
+  <button onclick="adminLogin()">管理者ログイン</button>
+</div>
+
+<div class="container" id="commentArea" style="display:none;">
+
+
+  <h2>コメント付きページカウンター</h2>
+
+  <div class="counter-box">
+    このページを開いた回数：<span id="count"></span>
+  </div>
+
+  <div class="input-area">
+       <input type="text" id="commentInput" placeholder="コメントを入力">
+    <button onclick="addComment()">コメントを追加</button>
+<button onclick="deleteUser()">アカウント削除</button>
+<button onclick="logout()">ログアウト</button>
+
+  </div>
+
+
+<div id="adminTools" style="display:none;">
+  <button onclick="deleteAllComments()">全コメント削除</button>
+</div>
+
+  <ul id="commentList"></ul>
+
+</div>
+
+
+
+<script>
+  // --- ページ表示回数 ---
+  let count = localStorage.getItem("pageCount") || 0;
+  count++;
+  localStorage.setItem("pageCount", count);
+  document.getElementById("count").textContent = count;
+
+  // --- コメント機能 ---
+ 
+ 
+
+</script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDeF9gTFrk9JvygjHwkIPK7Cs1-gENgWnA",
+    authDomain: "content-sharecomments.firebaseapp.com",
+    projectId: "content-sharecomments",
+    storageBucket: "content-sharecomments.firebasestorage.app",
+    messagingSenderId: "742514665645",
+    appId: "1:742514665645:web:44baaeb69ae947678ffe24"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+firebase.auth().onAuthStateChanged((user) => {
+  if (user) {
+    // ログインしている
+    document.getElementById("loginArea").style.display = "none";
+    document.getElementById("commentArea").style.display = "block";
+
+    document.getElementById("loginStatus").textContent =
+      "ログイン中：" + user.displayName;
+  } else {
+    // ログアウトしている
+    document.getElementById("loginArea").style.display = "block";
+    document.getElementById("commentArea").style.display = "none";
+
+    document.getElementById("loginStatus").textContent =
+      "ログインしてください";
+  }
+});
+
+
+firebase.auth().onAuthStateChanged(async (user) => {
+  if (user) {
+    const adminDoc = await db.collection("admins").doc(user.uid).get();
+    isAdmin = adminDoc.exists;
+
+    // 管理者なら全削除ボタンを表示
+    if (isAdmin) {
+      document.getElementById("adminTools").style.display = "block";
+    } else {
+      document.getElementById("adminTools").style.display = "none";
+    }
+  } else {
+    isAdmin = false;
+    document.getElementById("adminTools").style.display = "none";
+  }
+});
+
+function signup() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const name = document.getElementById("displayName").value;
+
+  firebase.auth().createUserWithEmailAndPassword(email, password)
+    .then((userCredential) => {
+      const user = userCredential.user;
+
+      // 表示名を設定
+      return user.updateProfile({
+        displayName: name
+      });
+    })
+    .then(() => {
+      document.getElementById("loginStatus").textContent = "新規登録完了！";
+    })
+    .catch((error) => {
+      document.getElementById("loginStatus").textContent = "エラー: " + error.message;
+    });
+}
+
+
+function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  firebase.auth().signInWithEmailAndPassword(email, password)
+    .then((userCredential) => {
+      const user = userCredential.user;
+      document.getElementById("loginStatus").textContent =
+        "ログイン成功：" + user.displayName;
+    })
+    .catch((error) => {
+      document.getElementById("loginStatus").textContent = "エラー: " + error.message;
+    });
+}
+
+
+function addComment() {
+  const user = firebase.auth().currentUser;
+  const text = document.getElementById("commentInput").value.trim();
+
+  if (!user) {
+    alert("ログインしてください");
+    return;
+  }
+
+  if (text === "") return;
+
+  db.collection("comments").add({
+    uid: user.uid,
+    name: user.displayName,   // ← ここが自動で入る
+    text: text,
+    date: new Date().toLocaleString("ja-JP")
+  });
+
+  document.getElementById("commentInput").value = "";
+}
+
+db.collection("comments")
+  .orderBy("date", "desc")
+  .onSnapshot((snapshot) => {
+    const list = document.getElementById("commentList");
+    list.innerHTML = "";
+
+    snapshot.forEach((doc) => {
+      const c = doc.data();
+      const li = document.createElement("li");
+
+      let deleteButton = "";
+
+      // 自分のコメントだけ削除ボタンを表示
+     if ((loginUser && loginUser.uid === c.uid) || isAdmin) {
+  deleteButton = `<button onclick="deleteComment('${doc.id}')">削除</button>`;
+}
+      li.innerHTML = `
+        <strong>${c.name}</strong><br>
+        ${c.text}
+        <div class="meta">${c.date}</div>
+        ${deleteButton}
+      `;
+
+      list.appendChild(li);
+    });
+  });
+
+function deleteUser() {
+  const user = firebase.auth().currentUser;
+  const email = user.email;
+  const password = prompt("パスワードを入力してください（アカウント削除用）");
+
+  if (!password) {
+    alert("パスワードが入力されていません");
+    return;
+  }
+
+  const credential = firebase.auth.EmailAuthProvider.credential(email, password);
+
+  // 再認証
+  user.reauthenticateWithCredential(credential)
+    .then(() => {
+      // 再認証成功 → アカウント削除
+      return user.delete();
+    })
+    .then(() => {
+      alert("アカウントを削除しました");
+    })
+    .catch((error) => {
+      alert("削除エラー: " + error.message);
+    });
+}
+
+function logout() {
+  firebase.auth().signOut()
+    .then(() => {
+      document.getElementById("loginStatus").textContent = "ログアウトしました";
+    })
+    .catch((error) => {
+      document.getElementById("loginStatus").textContent =
+        "エラー: " + error.message;
+    });
+}
+
+
+function deleteComment(id) {
+  db.collection("comments").doc(id).delete()
+    .then(() => {
+      console.log("削除しました");
+    })
+    .catch((error) => {
+      console.error("削除エラー:", error);
+    });
+}
+
+function deleteAllComments() {
+  if (!isAdmin) {
+    alert("管理者のみ実行できます");
+    return;
+  }
+
+  db.collection("comments").get().then((snapshot) => {
+    snapshot.forEach((doc) => {
+      doc.ref.delete();
+    });
+  });
+}
+
+
+let loginUser = null;
+let isAdmin = false;
+
+
+function adminLogin() {
+  const pass = document.getElementById("adminPass").value;
+
+  if (pass === "11010414") {  // ← 好きなパスワードにしてOK
+    isAdmin = true;
+    alert("管理者モードになりました");
+    document.getElementById("adminTools").style.display = "block";
+  } else {
+    alert("パスワードが違います");
+  }
+}
+
+
+
+firebase.auth().onAuthStateChanged((user) => {
+  loginUser = user;
+});
+
+
+
+
+
+
+
+
+function deleteAllComments() {
+  if (!isAdmin) return;
+
+  db.collection("comments").get().then((snapshot) => {
+    snapshot.forEach((doc) => {
+      doc.ref.delete();
+    });
+  });
+}
+</script>
+</body>
+</html>
