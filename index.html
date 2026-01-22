@@ -183,20 +183,51 @@ firebase.auth().onAuthStateChanged((user) => {
 
 
 firebase.auth().onAuthStateChanged(async (user) => {
-  if (user) {
-    const adminDoc = await db.collection("admins").doc(user.uid).get();
-    isAdmin = adminDoc.exists;
+  loginUser = user;
 
-    // 管理者なら全削除ボタンを表示
-    if (isAdmin) {
-      document.getElementById("adminTools").style.display = "block";
-    } else {
-      document.getElementById("adminTools").style.display = "none";
-    }
-  } else {
+  if (!user) {
     isAdmin = false;
+    return;
+  }
+
+  // 管理者チェック
+  const adminDoc = await db.collection("admins").doc(user.uid).get();
+  isAdmin = adminDoc.exists;
+
+  // 管理者ならボタン表示
+  if (isAdmin) {
+    document.getElementById("adminTools").style.display = "block";
+  } else {
     document.getElementById("adminTools").style.display = "none";
   }
+
+  // コメント読み込み（管理者チェックの後に実行）
+  db.collection("comments")
+    .orderBy("date", "desc")
+    .onSnapshot((snapshot) => {
+      const list = document.getElementById("commentList");
+      list.innerHTML = "";
+
+      snapshot.forEach((doc) => {
+        const c = doc.data();
+        const li = document.createElement("li");
+
+        let deleteButton = "";
+
+        if ((loginUser && loginUser.uid === c.uid) || isAdmin) {
+          deleteButton = `<button onclick="deleteComment('${doc.id}')">削除</button>`;
+        }
+
+        li.innerHTML = `
+          <strong>${c.name}</strong><br>
+          ${c.text}
+          <div class="meta">${c.date}</div>
+          ${deleteButton}
+        `;
+
+        list.appendChild(li);
+      });
+    });
 });
 
 function signup() {
@@ -399,3 +430,4 @@ function deleteAllComments() {
 </body>
 
 </html>
+
